@@ -1,0 +1,13 @@
+# 忽略所有.pyc文件
+*.pyc
+
+# 忽略所有.ipynb文件
+*.ipynb
+
+# 忽略所有数据集
+data/raw/*
+data/processed/*
+
+# 忽略所有模型
+models/*
+
