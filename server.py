@@ -29,9 +29,18 @@ class QueueManager:
         self.train_data = pd.read_csv('data/processed/train_features.csv')
         print("加载训练数据完成")
         
-        # 煤种处理时间配置
+        # 每个煤种独立的队列
+        self.coal_type_queues = {
+            'YT02WX': [],
+            'YT04MM': [],
+            'YT02HK': [],
+            'YT05MM': [],
+            'YT02XX': []
+        }
+        
+        # 每个煤种的装煤站处理时间
         self.coal_process_times = {
-            'YT02WX': 25,  # 分钟
+            'YT02WX': 25,
             'YT04MM': 30,
             'YT02HK': 28,
             'YT05MM': 27,
@@ -49,6 +58,20 @@ class QueueManager:
             'coal_type_stats': {}  # 煤种统计
         }
         
+        # 添加新的配置参数
+        self.error_threshold = 10  # 预测误差阈值（分钟）
+        self.weight_history = []   # 存储权重调整历史
+        self.prediction_errors = [] # 存储预测误差
+        self.abnormal_threshold = 30  # 异常判断阈值（分钟）
+        
+        # 初始权重配置
+        self.default_weights = {
+            'model': 0.6,
+            'queue': 0.3,
+            'base': 0.1
+        }
+        self.current_weights = self.default_weights.copy()
+
     def update_historical_stats(self, order_data):
         """更新历史统计数据"""
         dt = pd.to_datetime(order_data['queue_time'])
@@ -167,82 +190,176 @@ class QueueManager:
         ]
     
     def calculate_queue_wait_time(self, coal_type, queue_time):
-        """计算实际队列等待时间"""
-        same_type_queue = [
-            order for order in self.current_queue
-            if order['coal_type'] == coal_type
-        ]
+        """计算队列等待时间"""
+        # 获取该煤种的队列
+        coal_queue = self.coal_type_queues.get(coal_type, [])
         
+        # 基础处理时间
         base_process_time = self.coal_process_times.get(coal_type, 25)
-        queue_length = len(same_type_queue)
         
-        # ��础等待时间
-        wait_time = base_process_time * (queue_length + 1)
+        # 如果是该煤种队列的第一辆车
+        if len(coal_queue) == 0:
+            return base_process_time * 0.5  # 只需要基础装煤时间
+            
+        # 计算前面车辆的等待时间
+        queue_wait_time = base_process_time * len(coal_queue)
         
-        # 考虑煤种切换的额外时间
-        if queue_length == 0 and len(self.current_queue) > 0:
-            last_order = self.current_queue[-1]
-            if last_order['coal_type'] != coal_type:
-                wait_time += 10  # 煤种切换额外等待时间
-        
-        return wait_time
+        return queue_wait_time
     
+    def calculate_weights(self, hour, queue_length, coal_type):
+        """动态权重计算系统"""
+        weights = self.current_weights.copy()
+        
+        # 1. 队列长度影响
+        if queue_length > 10:
+            weights['queue'] += 0.1
+            weights['model'] -= 0.1
+        elif queue_length > 20:
+            weights['queue'] += 0.2
+            weights['model'] -= 0.2
+            
+        # 2. 时间段影响
+        if 6 <= hour <= 9 or 17 <= hour <= 19:  # 高峰时段
+            weights['model'] += 0.1
+            weights['queue'] -= 0.1
+            
+        # 3. 煤种特殊处理
+        same_type_count = len([x for x in self.current_queue if x['coal_type'] == coal_type])
+        if same_type_count > 5:  # 同煤种积压
+            weights['queue'] += 0.15
+            weights['model'] -= 0.15
+            
+        # 确保权重和为1
+        total = sum(weights.values())
+        return {k: v/total for k, v in weights.items()}
+
+    def is_abnormal_pattern(self):
+        """检测异常模式"""
+        if len(self.prediction_errors) < 5:
+            return False
+            
+        # 检查最近5次预测误差
+        recent_errors = self.prediction_errors[-5:]
+        avg_error = np.mean(recent_errors)
+        
+        # 检查队列异常增长
+        queue_growth_rate = len(self.current_queue) - len(self.current_queue[:-5])
+        
+        return avg_error > self.abnormal_threshold or queue_growth_rate > 10
+
+    def handle_abnormal_prediction(self, coal_type, queue_time):
+        """处理异常情况的预测"""
+        # 1. 使用更保守的预测方式
+        base_time = self.coal_process_times.get(coal_type, 25)
+        queue_length = len(self.current_queue)
+        
+        # 2. 增加安全边际
+        safety_margin = 1.5
+        
+        # 3. 基于最近实际等待时间调整
+        recent_waits = [order['actual_wait'] for order in self.current_queue[-5:] 
+                       if 'actual_wait' in order]
+        
+        if recent_waits:
+            avg_recent_wait = np.mean(recent_waits) * safety_margin
+            return max(avg_recent_wait, base_time * queue_length)
+        
+        return base_time * queue_length * safety_margin
+
+    def fallback_prediction(self, coal_type):
+        """降级预测机制"""
+        # 使用最简单的预测方式
+        base_time = self.coal_process_times.get(coal_type, 25)
+        queue_length = len(self.current_queue)
+        return base_time * (queue_length + 1)
+
+    def update_model_weights(self, order_id, actual_wait_time):
+        """更新模型权重（自适应学习）"""
+        # 找到对应的预测记录
+        order = next((x for x in self.current_queue if x['order_id'] == order_id), None)
+        if not order:
+            return
+            
+        predicted_time = order['predicted_wait']
+        error = abs(actual_wait_time - predicted_time)
+        
+        # 存储预测误差
+        self.prediction_errors.append(error)
+        
+        # 如果误差超过阈值，调整权重
+        if error > self.error_threshold:
+            # 计算权重调整方向
+            if actual_wait_time > predicted_time:
+                # 预测偏低，增加队列权重
+                self.current_weights['queue'] = min(0.5, self.current_weights['queue'] + 0.05)
+                self.current_weights['model'] = max(0.4, self.current_weights['model'] - 0.05)
+            else:
+                # 预测偏高，增加模型权重
+                self.current_weights['model'] = min(0.7, self.current_weights['model'] + 0.05)
+                self.current_weights['queue'] = max(0.2, self.current_weights['queue'] - 0.05)
+            
+            # 记录权重调整
+            self.weight_history.append({
+                'timestamp': datetime.now(),
+                'weights': self.current_weights.copy(),
+                'error': error
+            })
+
     def predict_wait_time(self, order_id, coal_type, queue_time):
-        """预测等待时间"""
-        # 清理过期订单
-        self.clean_expired_orders(queue_time)
-        
-        # 计算基础队列等待时间
-        queue_wait_time = self.calculate_queue_wait_time(coal_type, queue_time)
-        
-        # 特征工程处理
-        features = self.prepare_features(order_id, coal_type, queue_time)
-        
-        # 使用模型预测基础等待时间
-        base_wait_time = float(self.model.predict(features)[0])
-        
-        # 根据特征重要性加权计算最终等待时间
-        importance_sum = self.feature_importance['importance'].sum()
-        top_features = self.feature_importance.nlargest(5, 'importance')
-        
-        # 计算加权系数
-        weight_model = 0.6
-        weight_queue = 0.3
-        weight_base = 0.1
-        
-        final_wait_time = (
-            weight_model * base_wait_time +
-            weight_queue * queue_wait_time +
-            weight_base * self.coal_process_times.get(coal_type, 25)
-        )
-        
-        # 更新队列和历史统计
-        order_data = {
-            'order_id': order_id,
-            'coal_type': coal_type,
-            'queue_time': queue_time,
-            'predicted_wait': final_wait_time
-        }
-        
-        self.current_queue.append(order_data)
-        self.update_historical_stats(order_data)
-        
-        # 计算预计叫号时间
-        queue_dt = datetime.strptime(queue_time, '%Y-%m-%d %H:%M:%S')
-        call_time = queue_dt + timedelta(minutes=final_wait_time)
-        
-        return {
-            'wait_minutes': round(final_wait_time, 2),
-            'call_time': call_time.strftime('%Y-%m-%d %H:%M:%S'),
-            'queue_info': {
-                'total_queue': len(self.current_queue),
-                'same_type_queue': len([x for x in self.current_queue if x['coal_type'] == coal_type]),
-                'base_process_time': self.coal_process_times.get(coal_type, 25),
-                'queue_wait_time': round(queue_wait_time, 2),
-                'model_prediction': round(base_wait_time, 2),
-                'top_features': top_features.to_dict('records')
+        """预测等待时间（整合新功能）"""
+        try:
+            # 清理过期订单
+            self.clean_expired_orders(queue_time)
+            
+            # 计算等待时间
+            queue_wait_time = self.calculate_queue_wait_time(coal_type, queue_time)
+            features = self.prepare_features(order_id, coal_type, queue_time)
+            base_wait_time = float(self.model.predict(features)[0])
+            
+            # 动态权重
+            weights = self.calculate_weights(
+                pd.to_datetime(queue_time).hour,
+                len(self.coal_type_queues[coal_type]),  # 只考虑同煤种队列长度
+                coal_type
+            )
+            
+            # 计算最终等待时间
+            wait_time = (
+                weights['model'] * base_wait_time +
+                weights['queue'] * queue_wait_time +
+                weights['base'] * self.coal_process_times.get(coal_type, 25)
+            )
+            
+            # 更新该煤种的队列
+            order_data = {
+                'order_id': order_id,
+                'coal_type': coal_type,
+                'queue_time': queue_time,
+                'predicted_wait': wait_time
             }
-        }
+            self.coal_type_queues[coal_type].append(order_data)
+            
+            # 计算预计叫号时间
+            queue_dt = datetime.strptime(queue_time, '%Y-%m-%d %H:%M:%S')
+            call_time = queue_dt + timedelta(minutes=wait_time)
+            
+            return {
+                'wait_minutes': round(wait_time, 2),
+                'call_time': call_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'queue_info': {
+                    'total_queue': sum(len(q) for q in self.coal_type_queues.values()),
+                    'same_type_queue': len(self.coal_type_queues[coal_type]),
+                    'base_process_time': self.coal_process_times.get(coal_type, 25),
+                    'queue_wait_time': round(queue_wait_time, 2),
+                    'model_prediction': round(base_wait_time, 2),
+                    'weights_used': weights,
+                    'prediction_confidence': 'normal'
+                }
+            }
+            
+        except Exception as e:
+            print(f"预测过程发生错误: {str(e)}")
+            return self.fallback_prediction(coal_type, queue_time)
 
 # 创建全局队列管理器实例
 queue_manager = QueueManager()
@@ -282,6 +399,26 @@ def predict():
         import traceback
         print("错误详情:")
         print(traceback.format_exc())
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+
+@app.route('/update_wait_time', methods=['POST'])
+def update_wait_time():
+    try:
+        data = request.get_json()
+        order_id = data['order_id']
+        actual_wait_time = data['actual_wait_time']
+        
+        queue_manager.update_model_weights(order_id, actual_wait_time)
+        
+        return jsonify({
+            'status': 'success',
+            'message': '等待时间更新成功'
+        })
+        
+    except Exception as e:
         return jsonify({
             'status': 'error',
             'message': str(e)

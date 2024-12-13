@@ -73,25 +73,24 @@ def simulate_driver_checkin():
                 print(f"当前总队列: {queue_info['total_queue']} 辆")
                 print(f"同煤种队列: {queue_info['same_type_queue']} 辆")
                 print(f"基础处理时间: {format_time_period(queue_info['base_process_time'])}")
-                print(f"队列等待时间: {format_time_period(queue_info['queue_wait_time'])}")
-                print(f"模型基础预测: {format_time_period(queue_info['model_prediction'])}")
                 
-                if 'top_features' in queue_info:
-                    print("\n=== 重要特征影响 ===")
-                    for feature in queue_info['top_features']:
-                        print(f"{feature['feature']}: {feature['importance']:.2f}")
+                if 'queue_wait_time' in queue_info:
+                    print(f"队列等待时间: {format_time_period(queue_info['queue_wait_time'])}")
+                if 'model_prediction' in queue_info:
+                    print(f"模型基础预测: {format_time_period(queue_info['model_prediction'])}")
+                if 'prediction_confidence' in queue_info:
+                    print(f"预测置信度: {queue_info['prediction_confidence']}")
+                
+                if queue_info.get('is_abnormal'):
+                    print("\n警告: 检测到异常模式")
+                    
             else:
                 print(f"\n预测失败: {result.get('message', '未知错误')}")
-        else:
-            print(f"\n请求失败: HTTP {response.status_code}")
-            print(response.text)
-            
-    except requests.exceptions.ConnectionError:
-        print(f"\n连接服务器失败: 请确保服务器已启动且地址正确")
-    except requests.exceptions.Timeout:
-        print(f"\n请求超时: 服务器响应时间过长")
+                
     except Exception as e:
         print(f"\n发送请求失败: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
     finally:
         print("="*50)
 
@@ -106,6 +105,7 @@ def main():
         
         while True:
             simulate_driver_checkin()
+            # 随机等待5-15秒
             wait_time = random.randint(5, 15)
             print(f"\n等待 {wait_time} 秒后发送下一个请求...")
             time.sleep(wait_time)
