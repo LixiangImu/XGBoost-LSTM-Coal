@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from ..config.config import FEATURE_CONFIG, DATA_CONFIG
+from ..config.xgboost_config import FEATURE_CONFIG, DATA_CONFIG
 
 class DataProcessor:
     """数据处理类，负责数据的加载、清洗和预处理"""

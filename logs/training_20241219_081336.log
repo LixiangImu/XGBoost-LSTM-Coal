@@ -1,0 +1,17 @@
+2024-12-19 08:13:36,417 - INFO - 开始数据处理...
+2024-12-19 08:13:36,593 - WARNING - Dependency not available for matrix_profile, this feature will be disabled!
+2024-12-19 08:13:48,768 - INFO - 训练集形状: (4318, 10, 96)
+2024-12-19 08:13:48,768 - INFO - 验证集形状: (1080, 10, 96)
+2024-12-19 08:13:48,769 - INFO - 测试集形状: (1350, 10, 96)
+2024-12-19 08:13:48,769 - INFO - 开始训练模型...
+2024-12-19 08:13:51,103 - ERROR - 训练过程中出现错误: Invalid dtype: object
+Traceback (most recent call last):
+  File "/home/lx/XGBOOST-LSTM-COAL/scripts/lstm_train.py", line 75, in main
+    history = model.train(
+  File "/home/lx/XGBOOST-LSTM-COAL/src/models/lstm_model.py", line 129, in train
+    self.history = self.model.fit(
+  File "/root/anaconda3/envs/tf2/lib/python3.9/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/root/anaconda3/envs/tf2/lib/python3.9/site-packages/optree/ops.py", line 752, in tree_map
+    return treespec.unflatten(map(func, *flat_args))
+ValueError: Invalid dtype: object

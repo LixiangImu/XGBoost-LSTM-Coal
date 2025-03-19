@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from ..config.config import FEATURE_CONFIG
+from ..config.xgboost_config import FEATURE_CONFIG
 
 class FeatureEngineer:
     """特征工程类，负责特征的提取、转换和生成"""

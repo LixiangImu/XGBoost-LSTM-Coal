@@ -9,8 +9,8 @@ from datetime import datetime
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
-from src.data.data_processor import DataProcessor
-from src.data.feature_engineer import FeatureEngineer
+from src.data.xgb_data_processor import DataProcessor
+from src.data.xgb_feature_engineer import FeatureEngineer
 
 def main():
     """主执行函数"""

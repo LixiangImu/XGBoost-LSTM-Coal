@@ -1,0 +1,25 @@
+2024-12-19 07:35:42,780 - INFO - 开始数据处理...
+2024-12-19 07:35:42,780 - INFO - 输入文件: /home/lx/XGBOOST-LSTM-COAL/data/raw/queue_data_offset_sorted_utf8.csv
+2024-12-19 07:35:42,780 - INFO - 输出目录: /home/lx/XGBOOST-LSTM-COAL/data/processed/lstm
+2024-12-19 07:35:43,030 - WARNING - Dependency not available for matrix_profile, this feature will be disabled!
+2024-12-19 07:35:56,722 - INFO - 数据处理完成!
+2024-12-19 07:35:56,722 - INFO - 特征矩阵形状: (6748, 10, 116)
+2024-12-19 07:35:56,722 - INFO - 标签向量形状: (6748,)
+2024-12-19 07:35:56,722 - INFO - 
+测试预测数据准备...
+2024-12-19 07:35:56,722 - INFO - 
+测试案例:
+2024-12-19 07:35:56,723 - INFO - 提煤单号: TP210202410160054
+2024-12-19 07:35:56,723 - INFO - 煤种编号: YT02WX
+2024-12-19 07:35:56,723 - INFO - 排队时间: 2024-10-16 07:05:00
+2024-12-19 07:35:56,810 - WARNING - Dependency not available for matrix_profile, this feature will be disabled!
+2024-12-19 07:35:56,929 - ERROR - 预测数据准备失败
+2024-12-19 07:35:56,929 - INFO - 
+测试案例:
+2024-12-19 07:35:56,929 - INFO - 提煤单号: TP210202410160042
+2024-12-19 07:35:56,929 - INFO - 煤种编号: YT02WX
+2024-12-19 07:35:56,929 - INFO - 排队时间: 2024-10-16 07:05:00
+2024-12-19 07:35:57,016 - WARNING - Dependency not available for matrix_profile, this feature will be disabled!
+2024-12-19 07:35:57,129 - ERROR - 预测数据准备失败
+2024-12-19 07:35:57,129 - INFO - 
+所有处理完成!

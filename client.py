@@ -11,7 +11,7 @@ SERVER_PORT = 5000
 
 def get_coal_types():
     """从原始数据中获取煤种列表"""
-    raw_data = pd.read_csv('data/raw/queue_data_offset_sorted_utf8.csv')
+    raw_data = pd.read_csv('data/processed/xgboost/validation_data.csv')
     coal_types = list(raw_data['煤种编号'].unique())
     print(f"可用煤种类型: {coal_types}")
     return coal_types

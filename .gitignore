@@ -11,3 +11,5 @@ data/processed/*
 # 忽略所有模型
 models/*
 
+# 忽略所有预测报告
+predictions/*

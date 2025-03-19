@@ -7,7 +7,7 @@ from datetime import datetime
 import os
 import json
 
-from ..config.config import XGBOOST_PARAMS
+from ..config.xgboost_config import XGBOOST_PARAMS
 
 class XGBoostPredictor:
     """XGBoost模型类"""

@@ -4,15 +4,22 @@ from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 import xgboost as xgb
 import math
+import warnings
+from werkzeug.serving import WSGIRequestHandler
 
 app = Flask(__name__)
+
+# 忽略开发服务器警告
+warnings.filterwarnings('ignore', message='This is a development server.')
+# 或者完全禁用 Werkzeug 警告
+WSGIRequestHandler.protocol_version = "HTTP/1.1"
 
 class QueueManager:
     def __init__(self):
         # 加载模型和特征重要性
         print("初始化模型和特征工程器...")
         self.model = xgb.Booster()
-        model_path = 'models/xgboost/experiment_20241213_010025/final_model/model.json'
+        model_path = 'models/xgboost/experiment_20241220_080512/final_model/model.json'
         self.model.load_model(model_path)
         print(f"加载模型: {model_path}")
         
@@ -26,7 +33,7 @@ class QueueManager:
         print(f"可用煤种类型: {self.coal_types}")
         
         # 加载训练数据以获取统计特征
-        self.train_data = pd.read_csv('data/processed/train_features.csv')
+        self.train_data = pd.read_csv('data/processed/xgboost/train_features.csv')
         print("加载训练数据完成")
         
         # 每个煤种独立的队列
@@ -426,4 +433,17 @@ def update_wait_time():
 
 if __name__ == '__main__':
     print("启动等待时间预测服务...")
-    app.run(host='0.0.0.0', port=5000)
+    try:
+        app.run(host='0.0.0.0', port=5001)
+    except OSError as e:
+        if "Address already in use" in str(e):
+            print("端口5000已被占用,尝试使用其他端口...")
+            # 尝试其他端口
+            for port in range(5001, 5010):
+                try:
+                    app.run(host='0.0.0.0', port=port)
+                    break
+                except OSError:
+                    continue
+        else:
+            raise e

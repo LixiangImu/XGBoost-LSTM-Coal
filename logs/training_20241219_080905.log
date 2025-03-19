@@ -1,0 +1,15 @@
+2024-12-19 08:09:05,459 - INFO - 开始数据处理...
+2024-12-19 08:09:05,677 - WARNING - Dependency not available for matrix_profile, this feature will be disabled!
+2024-12-19 08:09:18,902 - INFO - 训练集形状: (4318, 10, 96)
+2024-12-19 08:09:18,903 - INFO - 验证集形状: (1080, 10, 96)
+2024-12-19 08:09:18,903 - INFO - 测试集形状: (1350, 10, 96)
+2024-12-19 08:09:18,903 - INFO - 开始训练模型...
+2024-12-19 08:09:20,990 - ERROR - 训练过程中出现错误: The filepath provided must end in `.keras` (Keras model format). Received: filepath=/home/lx/XGBOOST-LSTM-COAL/models/lstm/best_model.h5
+Traceback (most recent call last):
+  File "/home/lx/XGBOOST-LSTM-COAL/scripts/lstm_train.py", line 75, in main
+    history = model.train(
+  File "/home/lx/XGBOOST-LSTM-COAL/src/models/lstm_model.py", line 121, in train
+    ModelCheckpoint(
+  File "/root/anaconda3/envs/tf2/lib/python3.9/site-packages/keras/src/callbacks/model_checkpoint.py", line 191, in __init__
+    raise ValueError(
+ValueError: The filepath provided must end in `.keras` (Keras model format). Received: filepath=/home/lx/XGBOOST-LSTM-COAL/models/lstm/best_model.h5
